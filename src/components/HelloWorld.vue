@@ -1,120 +1,115 @@
-<template>
-  <div class="hello">
-    <h1>{{ msg }}</h1>
-    <button class="btn btn-primary">Click Me</button>
-    <p>
-      For a guide and recipes on how to configure / customize this project,<br />
-      check out the
-      <a href="https://cli.vuejs.org" target="_blank" rel="noopener"
-        >vue-cli documentation</a
-      >.
-    </p>
-    <h3>Installed CLI Plugins</h3>
-    <ul>
-      <li>
-        <a
-          href="https://github.com/vuejs/vue-cli/tree/dev/packages/%40vue/cli-plugin-babel"
-          target="_blank"
-          rel="noopener"
-          >babel</a
-        >
-      </li>
-      <li>
-        <a
-          href="https://github.com/vuejs/vue-cli/tree/dev/packages/%40vue/cli-plugin-router"
-          target="_blank"
-          rel="noopener"
-          >router</a
-        >
-      </li>
-      <li>
-        <a
-          href="https://github.com/vuejs/vue-cli/tree/dev/packages/%40vue/cli-plugin-eslint"
-          target="_blank"
-          rel="noopener"
-          >eslint</a
-        >
-      </li>
-      <li>
-        <a
-          href="https://github.com/vuejs/vue-cli/tree/dev/packages/%40vue/cli-plugin-typescript"
-          target="_blank"
-          rel="noopener"
-          >typescript</a
-        >
-      </li>
-    </ul>
-    <h3>Essential Links</h3>
-    <ul>
-      <li>
-        <a href="https://vuejs.org" target="_blank" rel="noopener">Core Docs</a>
-      </li>
-      <li>
-        <a href="https://forum.vuejs.org" target="_blank" rel="noopener"
-          >Forum</a
-        >
-      </li>
-      <li>
-        <a href="https://chat.vuejs.org" target="_blank" rel="noopener"
-          >Community Chat</a
-        >
-      </li>
-      <li>
-        <a href="https://twitter.com/vuejs" target="_blank" rel="noopener"
-          >Twitter</a
-        >
-      </li>
-      <li>
-        <a href="https://news.vuejs.org" target="_blank" rel="noopener">News</a>
-      </li>
-    </ul>
-    <h3>Ecosystem</h3>
-    <ul>
-      <li>
-        <a href="https://router.vuejs.org" target="_blank" rel="noopener"
-          >vue-router</a
-        >
-      </li>
-      <li>
-        <a href="https://vuex.vuejs.org" target="_blank" rel="noopener">vuex</a>
-      </li>
-      <li>
-        <a
-          href="https://github.com/vuejs/vue-devtools#vue-devtools"
-          target="_blank"
-          rel="noopener"
-          >vue-devtools</a
-        >
-      </li>
-      <li>
-        <a href="https://vue-loader.vuejs.org" target="_blank" rel="noopener"
-          >vue-loader</a
-        >
-      </li>
-      <li>
-        <a
-          href="https://github.com/vuejs/awesome-vue"
-          target="_blank"
-          rel="noopener"
-          >awesome-vue</a
-        >
-      </li>
-    </ul>
-  </div>
-</template>
+<script setup lang="ts">
+import weatherService from "@/services/weather.service";
+import {
+  GetHsintienAllRes,
+  GetHsintienAllLocationsDatum,
+  GetHsintienAllWeatherElementDatum,
+} from "@/utils/model/getHsintienAll.model";
+import { onMounted, ref } from "vue";
+const getHsintienAllData = ref<GetHsintienAllRes>();
+const title = ref("");
+const cityName = ref("");
+const locationName = ref("");
+const currentTemperature = ref("");
+const weatherElementDescription = ref("");
+const weatherElement = ref<GetHsintienAllWeatherElementDatum[]>([]);
+const weatherElementArr = ref<GetHsintienAllWeatherElementDatum[]>([]);
+const tableHeader = ref<any[]>([]);
 
-<script lang="ts">
-import { Options, Vue } from "vue-class-component";
+onMounted(() => {
+  getHsintienAll();
+});
 
-@Options({
-  props: {
-    msg: String,
-  },
-})
-export default class HelloWorld extends Vue {
-  msg!: string;
+async function getHsintienAll() {
+  const res = await weatherService.getHsintienAll();
+  getHsintienAllData.value = res.data;
+  if (getHsintienAllData.value !== undefined) {
+    const data: GetHsintienAllLocationsDatum =
+      getHsintienAllData.value.records.locations[0];
+    weatherElementArr.value = data.location[0].weatherElement;
+    format(data);
+  }
+}
+
+function format(data: GetHsintienAllLocationsDatum) {
+  title.value = data.datasetDescription;
+  cityName.value = data.locationsName;
+  locationName.value = data.location[0].locationName;
+  weatherElementDescription.value =
+    data.location[0].weatherElement[0].description;
+  weatherElement.value = data.location[0].weatherElement.sort(function (a, z) {
+    return a.elementName.localeCompare(z.elementName);
+  });
+  weatherElement.value.forEach((res: GetHsintienAllWeatherElementDatum) => {
+    if (res.elementName === "T") {
+      currentTemperature.value = res.time[0].elementValue[0].value;
+    }
+  });
+
+  tableHeader.value = weatherElement.value[0].time.map((res: any) => ({
+    date: formatDate(res.startTime.split(" ")[0]),
+    dayStatus: res.startTime.split(" ")[1] === "18:00:00" ? "晚上" : "白天",
+  }));
+}
+
+function formatDate(res: string): string {
+  return res.replaceAll("-", "/").slice(5);
 }
 </script>
+
+<template>
+  <div class="container">
+    <!-- <h1>{{ title }}</h1>
+    <h3>{{ cityName }}{{ locationName }}</h3>
+    <h4>{{ weatherElementDescription }}</h4> -->
+    <h5>{{ currentTemperature }}°C</h5>
+    <div class="table-responsive">
+      <table class="table table-hover table-bordered">
+        <thead>
+          <tr>
+            <th class="w-12 text-start" scope="col">日期</th>
+            <th v-for="data in tableHeader" :key="data" scope="col">
+              {{ data.date }}
+            </th>
+          </tr>
+          <tr>
+            <th class="w-12 text-start" scope="col">時間</th>
+            <th v-for="data in tableHeader" :key="data" scope="col">
+              {{ data.dayStatus }}
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="(item, index) in weatherElement" :key="item.description">
+            <th class="text-start" scope="row">{{ item.description }}</th>
+            <template v-if="item.elementName === 'UVI'">
+              <td v-for="data in item.time" :key="data.startTime" colspan="2">
+                {{ data.elementValue[0].value }}
+              </td>
+            </template>
+            <template v-else>
+              <td
+                v-for="item in weatherElement[index].time"
+                :key="item.startTime"
+              >
+                <template v-if="item.elementValue[0].value !== ' '">
+                  <span>{{ item.elementValue[0].value }}</span>
+                  <template v-if="item.elementValue[0].measures === '百分比'">
+                    <span>%</span>
+                  </template>
+                  <template v-if="item.elementValue[0].measures === '攝氏度'">
+                    <span>°C</span>
+                  </template>
+                </template>
+                <template v-else>-</template>
+              </td>
+            </template>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</template>
 
 <!-- Add "scoped" attribute to limit CSS to this component only -->
 <style scoped lang="scss">
